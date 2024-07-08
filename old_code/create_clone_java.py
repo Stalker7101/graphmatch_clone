@@ -135,7 +135,14 @@ def get_edge_next_sib(node, vocab_dict, src, tgt, edge_type):
 
 
 def get_edge_flow(
-    node, vocab_dict, src, tgt, edge_type, if_edge=False, while_edge=False, for_edge=False
+    node,
+    vocab_dict,
+    src,
+    tgt,
+    edge_type,
+    if_edge=False,
+    while_edge=False,
+    for_edge=False,
 ):
     token = node.token
     if while_edge == True:
@@ -170,7 +177,9 @@ def get_edge_flow(
                 tgt.append(node.children[0].id)
                 edge_type.append([edges["Ifelse"]])
     for child in node.children:
-        get_edge_flow(child, vocab_dict, src, tgt, edge_type, if_edge, while_edge, for_edge)
+        get_edge_flow(
+            child, vocab_dict, src, tgt, edge_type, if_edge, while_edge, for_edge
+        )
 
 
 def get_edge_next_stmt(node, vocab_dict, src, tgt, edge_type):
@@ -367,7 +376,11 @@ def creategmndata(id, tree_dict, vocablen, vocabdict, device):
     else:
         print("file not exist")
         quit()
-    train_list, valid_list, test_list = train_file.readlines(), valid_file.readlines(), test_file.readlines()
+    train_list, valid_list, test_list = (
+        train_file.readlines(),
+        valid_file.readlines(),
+        test_file.readlines(),
+    )
     train_data, valid_data, test_data = [], [], []
     print("train data")
     train_data = create_pair_data(tree_dict, train_list, device=device)

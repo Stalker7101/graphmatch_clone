@@ -34,43 +34,43 @@ def get_edge_next_sib(node, vocab_dict, src, tgt, edge_type):
         get_edge_next_sib(child, vocab_dict, src, tgt, edge_type)
 
 
+def edge_flow_append(edge, node, src, tgt, edge_type):
+    src.append(node.children[0].id)
+    tgt.append(node.children[1].id)
+    edge_type.append([edges[edge]])
+    src.append(node.children[1].id)
+    tgt.append(node.children[0].id)
+    edge_type.append([edges[edge]])
+
+
 def get_edge_flow(
-    node, vocab_dict, src, tgt, edge_type, if_edge=False, while_edge=False, for_edge=False
+    node,
+    vocab_dict,
+    src,
+    tgt,
+    edge_type,
+    if_edge=False,
+    while_edge=False,
+    for_edge=False,
 ):
     token = node.token
-    if while_edge == True:
-        if token == "WhileStatement":
+    if while_edge == True and token == "WhileStatement":
+        edge_flow_append("While", node, src, tgt, edge_type)
+    if for_edge == True and token == "ForStatement":
+        edge_flow_append("For", node, src, tgt, edge_type)
+    if if_edge == True and token == "IfStatement":
+        edge_flow_append("If", node, src, tgt, edge_type)
+        if len(node.children) == 3:
             src.append(node.children[0].id)
-            tgt.append(node.children[1].id)
-            edge_type.append([edges["While"]])
-            src.append(node.children[1].id)
+            tgt.append(node.children[2].id)
+            edge_type.append([edges["Ifelse"]])
+            src.append(node.children[2].id)
             tgt.append(node.children[0].id)
-            edge_type.append([edges["While"]])
-    if for_edge == True:
-        if token == "ForStatement":
-            src.append(node.children[0].id)
-            tgt.append(node.children[1].id)
-            edge_type.append([edges["For"]])
-            src.append(node.children[1].id)
-            tgt.append(node.children[0].id)
-            edge_type.append([edges["For"]])
-    if if_edge == True:
-        if token == "IfStatement":
-            src.append(node.children[0].id)
-            tgt.append(node.children[1].id)
-            edge_type.append([edges["If"]])
-            src.append(node.children[1].id)
-            tgt.append(node.children[0].id)
-            edge_type.append([edges["If"]])
-            if len(node.children) == 3:
-                src.append(node.children[0].id)
-                tgt.append(node.children[2].id)
-                edge_type.append([edges["Ifelse"]])
-                src.append(node.children[2].id)
-                tgt.append(node.children[0].id)
-                edge_type.append([edges["Ifelse"]])
+            edge_type.append([edges["Ifelse"]])
     for child in node.children:
-        get_edge_flow(child, vocab_dict, src, tgt, edge_type, if_edge, while_edge, for_edge)
+        get_edge_flow(
+            child, vocab_dict, src, tgt, edge_type, if_edge, while_edge, for_edge
+        )
 
 
 def get_edge_next_stmt(node, vocab_dict, src, tgt, edge_type):
@@ -244,7 +244,9 @@ def create_ast():
             get_sequence(program_ast, all_tokens)
             program_file.close()
     ast_dict = dict(zip(paths, asts))
-    if_count, while_count, for_count, block_count, do_count, switch_count = 0, 0, 0, 0, 0, 0
+    if_count, while_count, for_count, block_count, do_count, switch_count = (
+        0, 0, 0, 0, 0, 0,
+    )
     for token in all_tokens:
         if token == "IfStatement":
             if_count += 1
@@ -295,7 +297,7 @@ def create_separate_graph(
         node_list = []
         new_tree = AnyNode(id=0, token=None, data=None)
         create_tree(new_tree, tree, node_list)
-        x, edge_src, edge_tgt, edge_attr  = [], [], [], []
+        x, edge_src, edge_tgt, edge_attr = [], [], [], []
         if mode == "ast_only":
             get_node_and_edge_ast_only(new_tree, x, vocab_dict, edge_src, edge_tgt)
         else:
@@ -303,14 +305,7 @@ def create_separate_graph(
             if next_sib == True:
                 get_edge_next_sib(new_tree, vocab_dict, edge_src, edge_tgt, edge_attr)
             get_edge_flow(
-                new_tree,
-                vocab_dict,
-                edge_src,
-                edge_tgt,
-                edge_attr,
-                if_edge,
-                while_edge,
-                for_edge,
+                new_tree, vocab_dict, edge_src, edge_tgt, edge_attr, if_edge, while_edge, for_edge
             )
             if block_edge == True:
                 get_edge_next_stmt(new_tree, vocab_dict, edge_src, edge_tgt, edge_attr)
@@ -334,14 +329,20 @@ def create_separate_graph(
 
 def create_gmn_data(id, tree_dict, vocab_len, vocab_dict, device):
     index_dir = "BCB/"
-    if id == "0":
-        train_file, valid_file, test_file = open(index_dir + "traindata.txt"), open(index_dir + "devdata.txt"), open(index_dir + "testdata.txt")
-    elif id == "11":
-        train_file, valid_file, test_file = open(index_dir + "traindata11.txt"), open(index_dir + "devdata.txt"), open(index_dir + "testdata.txt")
+    if id == "0" or id == "11":
+        train_file, valid_file, test_file = (
+            open(index_dir + ("traindata.txt" if id == "0" else "traindata11.txt")),
+            open(index_dir + "devdata.txt"),
+            open(index_dir + "testdata.txt"),
+        )
     else:
         print("file not exist")
         quit()
-    train_list, valid_list, test_list = train_file.readlines(), valid_file.readlines(), test_file.readlines()
+    train_list, valid_list, test_list = (
+        train_file.readlines(),
+        valid_file.readlines(),
+        test_file.readlines(),
+    )
     train_data, valid_data, test_data = [], [], []
     print("train_data")
     train_data = create_pair_data(tree_dict, train_list, device=device)
@@ -364,16 +365,10 @@ def create_pair_data(tree_dict, path_list, device):
         data_1 = tree_dict[code_1_path]
         data_2 = tree_dict[code_2_path]
         x_1, edge_index_1, edge_attr_1, ast_1_length = (
-            data_1[0][0],
-            data_1[0][1],
-            data_1[0][2],
-            data_1[1],
+            data_1[0][0], data_1[0][1], data_1[0][2], data_1[1],
         )
         x_2, edge_index_2, edge_attr_2, ast_2_length = (
-            data_2[0][0],
-            data_2[0][1],
-            data_2[0][2],
-            data_2[1],
+            data_2[0][0], data_2[0][1], data_2[0][2], data_2[1],
         )
         if edge_attr_1 == []:
             edge_attr_1 = None

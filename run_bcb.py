@@ -7,6 +7,7 @@ from tqdm import tqdm, trange
 from create_clone_bcb import create_ast, create_gmn_data, create_separate_graph
 import models
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", default=True)
 parser.add_argument("--dataset", default="gcj")
@@ -26,12 +27,13 @@ parser.add_argument("--lr", default=0.001)
 parser.add_argument("--threshold", default=0)
 args = parser.parse_args()
 
+
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu')
 print("CUDA", torch.cuda.is_available())
 
-device = torch.device("cuda:0")
-# device=torch.device('cpu')
+
 ast_dict, vocab_len, vocab_dict = create_ast()
-treedict = create_separate_graph(
+tree_dict = create_separate_graph(
     ast_dict,
     vocab_len,
     vocab_dict,
@@ -45,8 +47,8 @@ treedict = create_separate_graph(
     next_token=args.next_token,
     next_use=args.next_use,
 )
-train_data, validdata, test_data = create_gmn_data(
-    args.data_setting, treedict, vocab_len, vocab_dict, device
+train_data, valid_data, test_data = create_gmn_data(
+    args.data_setting, tree_dict, vocab_len, vocab_dict, device
 )
 print(len(train_data))
 num_layers = int(args.num_layers)
@@ -66,21 +68,24 @@ def create_batches(data):
     return batches
 
 
-def test(dataset):
+def predict(data):
+    x_1, x2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2 = data
+    x_1 = torch.tensor(x_1, dtype=torch.long, device=device)
+    x2 = torch.tensor(x2, dtype=torch.long, device=device)
+    edge_index_1 = torch.tensor(edge_index_1, dtype=torch.long, device=device)
+    edge_index_2 = torch.tensor(edge_index_2, dtype=torch.long, device=device)
+    if edge_attr_1 != None:
+        edge_attr_1 = torch.tensor(edge_attr_1, dtype=torch.long, device=device)
+        edge_attr_2 = torch.tensor(edge_attr_2, dtype=torch.long, device=device)
+    data = [x_1, x2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2]
+    return model(data)
+
+
+def validate(dataset):
     tp, tn, fp, fn = 0, 0, 0, 0
     results = []
     for data, label in dataset:
-        label = torch.tensor(label, dtype=torch.float, device=device)
-        x_1, x_2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2 = data
-        x_1 = torch.tensor(x_1, dtype=torch.long, device=device)
-        x_2 = torch.tensor(x_2, dtype=torch.long, device=device)
-        edge_index_1 = torch.tensor(edge_index_1, dtype=torch.long, device=device)
-        edge_index_2 = torch.tensor(edge_index_2, dtype=torch.long, device=device)
-        if edge_attr_1 != None:
-            edge_attr_1 = torch.tensor(edge_attr_1, dtype=torch.long, device=device)
-            edge_attr_2 = torch.tensor(edge_attr_2, dtype=torch.long, device=device)
-        data = [x_1, x_2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2]
-        prediction = model(data)
+        prediction = predict(data)
         output = F.cosine_similarity(prediction[0], prediction[1])
         results.append(output.item())
         prediction = torch.sign(output).item()
@@ -117,19 +122,9 @@ for epoch in epochs:  # without batching
         optimizer.zero_grad()
         batch_loss = 0
         for data, label in batch:
-            label = torch.tensor(label, dtype=torch.float, device=device)
-            x_1, x2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2 = data
-            x_1 = torch.tensor(x_1, dtype=torch.long, device=device)
-            x2 = torch.tensor(x2, dtype=torch.long, device=device)
-            edge_index_1 = torch.tensor(edge_index_1, dtype=torch.long, device=device)
-            edge_index_2 = torch.tensor(edge_index_2, dtype=torch.long, device=device)
-            if edge_attr_1 != None:
-                edge_attr_1 = torch.tensor(edge_attr_1, dtype=torch.long, device=device)
-                edge_attr_2 = torch.tensor(edge_attr_2, dtype=torch.long, device=device)
-            data = [x_1, x2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2]
-            prediction = model(data)
+            prediction = predict(data)
             cos_sim = F.cosine_similarity(prediction[0], prediction[1])
-            batch_loss = batch_loss + criterion_2(cos_sim, label)
+            batch_loss += criterion_2(cos_sim, torch.tensor(label, dtype=torch.float, device=device))
         batch_loss.backward(retain_graph=True)
         optimizer.step()
         loss = batch_loss.item()
@@ -137,14 +132,14 @@ for epoch in epochs:  # without batching
         main_index = main_index + len(batch)
         loss = total_loss / main_index
         epochs.set_description("Epoch (Loss=%g)" % round(loss, 5))
-    dev_results = test(validdata)
+    dev_results = validate(valid_data)
     dev_file = open(
         "gmnbcbresult/" + args.graph_mode + "_dev_epoch_" + str(epoch + 1), mode="w"
     )
     for res in dev_results:
         dev_file.write(str(res) + "\n")
     dev_file.close()
-    test_results = test(test_data)
+    test_results = validate(test_data)
     res_file = open(
         "gmnbcbresult/" + args.graph_mode + "_epoch_" + str(epoch + 1), mode="w"
     )
@@ -152,4 +147,4 @@ for epoch in epochs:  # without batching
         res_file.write(str(res) + "\n")
     res_file.close()
 
-    torch.save(model,'gmnmodels/gmnbcb'+str(epoch+1))
+    torch.save(model, "gmnmodels/gmnbcb" + str(epoch + 1))

@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import argparse
 from tqdm import tqdm, trange
-from create_clone_bcb import create_ast, create_gmn_data, create_separate_graph
+from old_code.create_clone_bcb import create_ast, create_gmn_data, create_separate_graph
 import models
 
 parser = argparse.ArgumentParser()

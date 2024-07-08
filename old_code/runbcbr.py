@@ -11,7 +11,7 @@ import sys
 import argparse
 from tqdm import tqdm, trange
 import pycparser
-from create_clone_bcb import create_ast, create_gmn_data, create_separate_graph
+from old_code.create_clone_bcb import create_ast, create_gmn_data, create_separate_graph
 import models
 from torch_geometric.data import Data, DataLoader
 

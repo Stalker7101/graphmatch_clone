@@ -245,7 +245,12 @@ def create_ast():
             program_file.close()
     ast_dict = dict(zip(paths, asts))
     if_count, while_count, for_count, block_count, do_count, switch_count = (
-        0, 0, 0, 0, 0, 0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
     )
     for token in all_tokens:
         if token == "IfStatement":
@@ -305,7 +310,14 @@ def create_separate_graph(
             if next_sib == True:
                 get_edge_next_sib(new_tree, vocab_dict, edge_src, edge_tgt, edge_attr)
             get_edge_flow(
-                new_tree, vocab_dict, edge_src, edge_tgt, edge_attr, if_edge, while_edge, for_edge
+                new_tree,
+                vocab_dict,
+                edge_src,
+                edge_tgt,
+                edge_attr,
+                if_edge,
+                while_edge,
+                for_edge,
             )
             if block_edge == True:
                 get_edge_next_stmt(new_tree, vocab_dict, edge_src, edge_tgt, edge_attr)
@@ -365,10 +377,16 @@ def create_pair_data(tree_dict, path_list, device):
         data_1 = tree_dict[code_1_path]
         data_2 = tree_dict[code_2_path]
         x_1, edge_index_1, edge_attr_1, ast_1_length = (
-            data_1[0][0], data_1[0][1], data_1[0][2], data_1[1],
+            data_1[0][0],
+            data_1[0][1],
+            data_1[0][2],
+            data_1[1],
         )
         x_2, edge_index_2, edge_attr_2, ast_2_length = (
-            data_2[0][0], data_2[0][1], data_2[0][2], data_2[1],
+            data_2[0][0],
+            data_2[0][1],
+            data_2[0][2],
+            data_2[1],
         )
         if edge_attr_1 == []:
             edge_attr_1 = None

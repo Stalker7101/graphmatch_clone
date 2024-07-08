@@ -10,14 +10,14 @@ import models
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", default=True)
 parser.add_argument("--dataset", default="gcj")
-parser.add_argument("--graphmode", default="astandnext")
-parser.add_argument("--nextsib", default=False)
-parser.add_argument("--ifedge", default=False)
-parser.add_argument("--whileedge", default=False)
-parser.add_argument("--foredge", default=False)
-parser.add_argument("--blockedge", default=False)
-parser.add_argument("--nexttoken", default=False)
-parser.add_argument("--nextuse", default=False)
+parser.add_argument("--graph_mode", default="ast_and_next")
+parser.add_argument("--next_sib", default=False)
+parser.add_argument("--if_edge", default=False)
+parser.add_argument("--while_edge", default=False)
+parser.add_argument("--for_edge", default=False)
+parser.add_argument("--block_edge", default=False)
+parser.add_argument("--next_token", default=False)
+parser.add_argument("--next_use", default=False)
 parser.add_argument("--data_setting", default="11")
 parser.add_argument("--batch_size", default=32)
 parser.add_argument("--num_layers", default=4)
@@ -30,32 +30,32 @@ print("CUDA", torch.cuda.is_available())
 
 device = torch.device("cuda:0")
 # device=torch.device('cpu')
-astdict, vocablen, vocabdict = create_ast()
+ast_dict, vocab_len, vocab_dict = create_ast()
 treedict = create_separate_graph(
-    astdict,
-    vocablen,
-    vocabdict,
+    ast_dict,
+    vocab_len,
+    vocab_dict,
     device,
-    mode=args.graphmode,
-    next_sib=args.nextsib,
-    if_edge=args.ifedge,
-    while_edge=args.whileedge,
-    for_edge=args.foredge,
-    block_edge=args.blockedge,
-    next_token=args.nexttoken,
-    next_use=args.nextuse,
+    mode=args.graph_mode,
+    next_sib=args.next_sib,
+    if_edge=args.if_edge,
+    while_edge=args.while_edge,
+    for_edge=args.for_edge,
+    block_edge=args.block_edge,
+    next_token=args.next_token,
+    next_use=args.next_use,
 )
-traindata, validdata, testdata = create_gmn_data(
-    args.data_setting, treedict, vocablen, vocabdict, device
+train_data, validdata, test_data = create_gmn_data(
+    args.data_setting, treedict, vocab_len, vocab_dict, device
 )
-print(len(traindata))
+print(len(train_data))
 num_layers = int(args.num_layers)
 model = models.GMNnet(
-    vocablen, embedding_dim=100, num_layers=num_layers, device=device
+    vocab_len, embedding_dim=100, num_layers=num_layers, device=device
 ).to(device)
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 criterion = nn.CosineEmbeddingLoss()
-criterion2 = nn.MSELoss()
+criterion_2 = nn.MSELoss()
 
 
 def create_batches(data):
@@ -71,15 +71,15 @@ def test(dataset):
     results = []
     for data, label in dataset:
         label = torch.tensor(label, dtype=torch.float, device=device)
-        x1, x2, edge_index1, edge_index2, edge_attr1, edge_attr2 = data
-        x1 = torch.tensor(x1, dtype=torch.long, device=device)
-        x2 = torch.tensor(x2, dtype=torch.long, device=device)
-        edge_index1 = torch.tensor(edge_index1, dtype=torch.long, device=device)
-        edge_index2 = torch.tensor(edge_index2, dtype=torch.long, device=device)
-        if edge_attr1 != None:
-            edge_attr1 = torch.tensor(edge_attr1, dtype=torch.long, device=device)
-            edge_attr2 = torch.tensor(edge_attr2, dtype=torch.long, device=device)
-        data = [x1, x2, edge_index1, edge_index2, edge_attr1, edge_attr2]
+        x_1, x_2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2 = data
+        x_1 = torch.tensor(x_1, dtype=torch.long, device=device)
+        x_2 = torch.tensor(x_2, dtype=torch.long, device=device)
+        edge_index_1 = torch.tensor(edge_index_1, dtype=torch.long, device=device)
+        edge_index_2 = torch.tensor(edge_index_2, dtype=torch.long, device=device)
+        if edge_attr_1 != None:
+            edge_attr_1 = torch.tensor(edge_attr_1, dtype=torch.long, device=device)
+            edge_attr_2 = torch.tensor(edge_attr_2, dtype=torch.long, device=device)
+        data = [x_1, x_2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2]
         prediction = model(data)
         output = F.cosine_similarity(prediction[0], prediction[1])
         results.append(output.item())
@@ -110,48 +110,46 @@ def test(dataset):
 epochs = trange(args.num_epochs, leave=True, desc="Epoch")
 for epoch in epochs:  # without batching
     print(epoch)
-    batches = create_batches(traindata)
-    totalloss = 0.0
+    batches = create_batches(train_data)
+    total_loss = 0.0
     main_index = 0.0
     for index, batch in tqdm(enumerate(batches), total=len(batches), desc="Batches"):
         optimizer.zero_grad()
-        batchloss = 0
+        batch_loss = 0
         for data, label in batch:
             label = torch.tensor(label, dtype=torch.float, device=device)
-            x1, x2, edge_index1, edge_index2, edge_attr1, edge_attr2 = data
-            x1 = torch.tensor(x1, dtype=torch.long, device=device)
+            x_1, x2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2 = data
+            x_1 = torch.tensor(x_1, dtype=torch.long, device=device)
             x2 = torch.tensor(x2, dtype=torch.long, device=device)
-            edge_index1 = torch.tensor(edge_index1, dtype=torch.long, device=device)
-            edge_index2 = torch.tensor(edge_index2, dtype=torch.long, device=device)
-            if edge_attr1 != None:
-                edge_attr1 = torch.tensor(edge_attr1, dtype=torch.long, device=device)
-                edge_attr2 = torch.tensor(edge_attr2, dtype=torch.long, device=device)
-            data = [x1, x2, edge_index1, edge_index2, edge_attr1, edge_attr2]
+            edge_index_1 = torch.tensor(edge_index_1, dtype=torch.long, device=device)
+            edge_index_2 = torch.tensor(edge_index_2, dtype=torch.long, device=device)
+            if edge_attr_1 != None:
+                edge_attr_1 = torch.tensor(edge_attr_1, dtype=torch.long, device=device)
+                edge_attr_2 = torch.tensor(edge_attr_2, dtype=torch.long, device=device)
+            data = [x_1, x2, edge_index_1, edge_index_2, edge_attr_1, edge_attr_2]
             prediction = model(data)
-            cossim = F.cosine_similarity(prediction[0], prediction[1])
-            batchloss = batchloss + criterion2(cossim, label)
-        batchloss.backward(retain_graph=True)
+            cos_sim = F.cosine_similarity(prediction[0], prediction[1])
+            batch_loss = batch_loss + criterion_2(cos_sim, label)
+        batch_loss.backward(retain_graph=True)
         optimizer.step()
-        loss = batchloss.item()
-        totalloss += loss
+        loss = batch_loss.item()
+        total_loss += loss
         main_index = main_index + len(batch)
-        loss = totalloss / main_index
+        loss = total_loss / main_index
         epochs.set_description("Epoch (Loss=%g)" % round(loss, 5))
-    devresults = test(validdata)
-    devfile = open(
-        "gmnbcbresult/" + args.graphmode + "_dev_epoch_" + str(epoch + 1), mode="w"
+    dev_results = test(validdata)
+    dev_file = open(
+        "gmnbcbresult/" + args.graph_mode + "_dev_epoch_" + str(epoch + 1), mode="w"
     )
-    for res in devresults:
-        devfile.write(str(res) + "\n")
-    devfile.close()
-    testresults = test(testdata)
-    resfile = open(
-        "gmnbcbresult/" + args.graphmode + "_epoch_" + str(epoch + 1), mode="w"
+    for res in dev_results:
+        dev_file.write(str(res) + "\n")
+    dev_file.close()
+    test_results = test(test_data)
+    res_file = open(
+        "gmnbcbresult/" + args.graph_mode + "_epoch_" + str(epoch + 1), mode="w"
     )
-    for res in testresults:
-        resfile.write(str(res) + "\n")
-    resfile.close()
-    # torch.save(model,'gmnmodels/gmnbcb'+str(epoch+1))
-    # for start in range(0, len(traindata), args.batch_size):
-    # batch = traindata[start:start+args.batch_size]
-    # epochs.set_description("Epoch (Loss=%g)" % round(loss,5))
+    for res in test_results:
+        res_file.write(str(res) + "\n")
+    res_file.close()
+
+    torch.save(model,'gmnmodels/gmnbcb'+str(epoch+1))

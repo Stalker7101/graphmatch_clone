@@ -17,8 +17,8 @@ from torch_geometric.data import Data, DataLoader
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", default=True)
-parser.add_argument("--dataset", default='gcj')
-parser.add_argument("--graphmode", default='astandnext')
+parser.add_argument("--dataset", default="gcj")
+parser.add_argument("--graphmode", default="astandnext")
 parser.add_argument("--nextsib", default=True)
 parser.add_argument("--ifedge", default=False)
 parser.add_argument("--whileedge", default=False)
@@ -26,7 +26,7 @@ parser.add_argument("--foredge", default=False)
 parser.add_argument("--blockedge", default=False)
 parser.add_argument("--nexttoken", default=False)
 parser.add_argument("--nextuse", default=False)
-parser.add_argument("--data_setting", default='11')
+parser.add_argument("--data_setting", default="11")
 parser.add_argument("--batch_size", default=32)
 parser.add_argument("--num_layers", default=4)
 parser.add_argument("--num_epochs", default=5)
@@ -35,17 +35,32 @@ parser.add_argument("--threshold", default=0)
 args = parser.parse_args()
 
 # device=torch.device('cuda:0')
-device = torch.device('cpu')
+device = torch.device("cpu")
 astdict, vocablen, vocabdict = createast()
-treedict = createseparategraph(astdict, vocablen, vocabdict, device, mode=args.graphmode, nextsib=args.nextsib,
-                               ifedge=args.ifedge, whileedge=args.whileedge, foredge=args.foredge,
-                               blockedge=args.blockedge, nexttoken=args.nexttoken, nextuse=args.nextuse)
-traindata, validdata, testdata = creategmndata(args.data_setting, treedict, vocablen, vocabdict, device)
+treedict = createseparategraph(
+    astdict,
+    vocablen,
+    vocabdict,
+    device,
+    mode=args.graphmode,
+    nextsib=args.nextsib,
+    ifedge=args.ifedge,
+    whileedge=args.whileedge,
+    foredge=args.foredge,
+    blockedge=args.blockedge,
+    nexttoken=args.nexttoken,
+    nextuse=args.nextuse,
+)
+traindata, validdata, testdata = creategmndata(
+    args.data_setting, treedict, vocablen, vocabdict, device
+)
 print("numTrainData:")
 print(len(traindata))
 # trainloder=DataLoader(traindata,batch_size=1)
 num_layers = int(args.num_layers)
-model = models.GMNnet(vocablen, embedding_dim=100, num_layers=num_layers, device=device).to(device)
+model = models.GMNnet(
+    vocablen, embedding_dim=100, num_layers=num_layers, device=device
+).to(device)
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 criterion = nn.CosineEmbeddingLoss()
 criterion2 = nn.MSELoss()
@@ -53,13 +68,16 @@ criterion2 = nn.MSELoss()
 
 def create_batches(data):
     # random.shuffle(data)
-    batches = [data[graph:graph + args.batch_size] for graph in range(0, len(data), args.batch_size)]
+    batches = [
+        data[graph : graph + args.batch_size]
+        for graph in range(0, len(data), args.batch_size)
+    ]
     return batches
 
 
-def test(dataset,epoch):
+def test(dataset, epoch):
     # model.eval()
-    ff=open("recordFATTOld"+str(epoch)+".txt",'w')
+    ff = open("recordFATTOld" + str(epoch) + ".txt", "w")
     count = 0
     correct = 0
     # tp = 0
@@ -70,7 +88,7 @@ def test(dataset,epoch):
     tn = []
     fp = []
     fn = []
-    for yi in range(0,18):
+    for yi in range(0, 18):
         tp.append(0)
         tn.append(0)
         fp.append(0)
@@ -104,7 +122,7 @@ for epoch in epochs:  # without batching
     batches = create_batches(traindata)
     totalloss = 0.0
     main_index = 0.0
-    zz=0
+    zz = 0
     for index, batch in tqdm(enumerate(batches), total=len(batches), desc="Batches"):
         optimizer.zero_grad()
         batchloss = 0
@@ -141,13 +159,13 @@ for epoch in epochs:  # without batching
         loss = totalloss / main_index
         epochs.set_description("Epoch (Loss=%g)" % round(loss, 5))
     # test(validdata)
-    #devresults = test(validdata)
+    # devresults = test(validdata)
     # devfile = open('gmnbcbresultnew/' + args.graphmode + '_dev_epoch_' + str(epoch + 1), mode='w')
     # for res in devresults:
     #     devfile.write(str(res) + '\n')
     # devfile.close()
     print("start test:")
-    testresults = test(testdata,epoch)
+    testresults = test(testdata, epoch)
 
     # resfile = open('gmnbcbresultnew/' + args.graphmode + '_epoch_' + str(epoch + 1), mode='w')
     # for res in testresults:
@@ -158,7 +176,7 @@ for epoch in epochs:  # without batching
     # batch = traindata[start:start+args.batch_size]
     # epochs.set_description("Epoch (Loss=%g)" % round(loss,5))
 
-'''for batch in trainloder:
+"""for batch in trainloder:
     batch=batch.to(device)
     print(batch)
     quit()
@@ -166,4 +184,4 @@ for epoch in epochs:  # without batching
     model.forward(batch)
     time_end=time.time()
     print(time_end-time_start)
-    quit()'''
+    quit()"""

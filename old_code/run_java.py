@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import argparse
 from tqdm import tqdm, trange
-from create_clone_bcb import create_ast, create_gmn_data, create_separate_graph
+from old_code.create_clone_java import create_ast, creategmndata, create_separate_graph
 import models
 
 parser = argparse.ArgumentParser()
@@ -18,7 +18,7 @@ parser.add_argument("--foredge", default=False)
 parser.add_argument("--blockedge", default=False)
 parser.add_argument("--nexttoken", default=False)
 parser.add_argument("--nextuse", default=False)
-parser.add_argument("--data_setting", default="11")
+parser.add_argument("--data_setting", default="0")
 parser.add_argument("--batch_size", default=32)
 parser.add_argument("--num_layers", default=4)
 parser.add_argument("--num_epochs", default=10)
@@ -26,11 +26,10 @@ parser.add_argument("--lr", default=0.001)
 parser.add_argument("--threshold", default=0)
 args = parser.parse_args()
 
-print("CUDA", torch.cuda.is_available())
-
 device = torch.device("cuda:0")
 # device=torch.device('cpu')
 astdict, vocablen, vocabdict = create_ast()
+print(astdict.keys())
 treedict = create_separate_graph(
     astdict,
     vocablen,
@@ -45,10 +44,9 @@ treedict = create_separate_graph(
     next_token=args.nexttoken,
     next_use=args.nextuse,
 )
-traindata, validdata, testdata = create_gmn_data(
+traindata, validdata, testdata = creategmndata(
     args.data_setting, treedict, vocablen, vocabdict, device
 )
-print(len(traindata))
 num_layers = int(args.num_layers)
 model = models.GMNnet(
     vocablen, embedding_dim=100, num_layers=num_layers, device=device
@@ -67,7 +65,10 @@ def create_batches(data):
 
 
 def test(dataset):
-    tp, tn, fp, fn = 0, 0, 0, 0
+    tp = 0
+    tn = 0
+    fp = 0
+    fn = 0
     results = []
     for data, label in dataset:
         label = torch.tensor(label, dtype=torch.float, device=device)
@@ -93,17 +94,24 @@ def test(dataset):
         if prediction <= args.threshold and label.item() == 1:
             fn += 1
     print(tp, tn, fp, fn)
-    p, r, f1 = 0.0, 0.0, 0.0
+    p = 0.0
+    r = 0.0
+    f1 = 0.0
     if tp + fp == 0:
-        return print("precision is none")
+        print("precision is none")
+        return
     p = tp / (tp + fp)
     if tp + fn == 0:
-        return print("recall is none")
+        print("recall is none")
+        return
     r = tp / (tp + fn)
     f1 = 2 * p * r / (p + r)
-    print("precision", p)
-    print("recall", r)
-    print("F1", f1)
+    print("precision")
+    print(p)
+    print("recall")
+    print(r)
+    print("F1")
+    print(f1)
     return results
 
 
@@ -139,19 +147,18 @@ for epoch in epochs:  # without batching
         epochs.set_description("Epoch (Loss=%g)" % round(loss, 5))
     devresults = test(validdata)
     devfile = open(
-        "gmnbcbresult/" + args.graphmode + "_dev_epoch_" + str(epoch + 1), mode="w"
+        "gcjresult/" + args.graphmode + "_dev_epoch_" + str(epoch + 1), mode="w"
     )
     for res in devresults:
         devfile.write(str(res) + "\n")
     devfile.close()
     testresults = test(testdata)
-    resfile = open(
-        "gmnbcbresult/" + args.graphmode + "_epoch_" + str(epoch + 1), mode="w"
-    )
+    resfile = open("gcjresult/" + args.graphmode + "_epoch_" + str(epoch + 1), mode="w")
     for res in testresults:
         resfile.write(str(res) + "\n")
     resfile.close()
-    # torch.save(model,'gmnmodels/gmnbcb'+str(epoch+1))
+
+    # torch.save(model,'models/gmngcj'+str(epoch+1))
     # for start in range(0, len(traindata), args.batch_size):
     # batch = traindata[start:start+args.batch_size]
     # epochs.set_description("Epoch (Loss=%g)" % round(loss,5))

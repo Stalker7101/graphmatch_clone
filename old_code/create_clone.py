@@ -1,15 +1,8 @@
 import os
-import itertools
-import pycparser
 import torch
-from torch_geometric.data import Data
 from pycparser import c_parser
-from pycparser.c_ast import Node
 
 parser = c_parser.CParser()
-# Node.__slots__=('id')
-# print(Node.__slots__)
-# quit()
 token_mode = "value"
 
 
@@ -127,18 +120,6 @@ def createast():
                 programtext = programtext.replace("\r", "")
                 programast = parser.parse(programtext)
                 appendtokens(programast, alltokens)
-                """nodelist=[]
-                getnodes(programast,nodelist)
-                #print(nodelist)
-                nodedict=dict(zip(nodelist,range(len(nodelist))))
-                print(len(nodedict))
-                edgesrc=[]
-                edgetgt=[]
-                getedges(programast,edgesrc,edgetgt,nodedict)
-                edge_index=[edgesrc,edgetgt]
-                print(len(edgesrc))
-                print(edge_index)
-                quit()"""
                 programfile.close()
                 programpath = os.path.join(rt, file)
                 print(programpath)

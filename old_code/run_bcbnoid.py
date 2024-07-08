@@ -1,17 +1,25 @@
+import math
+import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 import torch.optim as optim
+import numpy as np
+import time
+import sys
 import argparse
 from tqdm import tqdm, trange
-from create_clone_bcb import create_ast, create_gmn_data, create_separate_graph
+import pycparser
+from createclone_bcb_noid import createast, creategmndata, createseparategraph
 import models
+from torch_geometric.data import Data, DataLoader
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", default=True)
 parser.add_argument("--dataset", default="gcj")
 parser.add_argument("--graphmode", default="astandnext")
-parser.add_argument("--nextsib", default=False)
+parser.add_argument("--nextsib", default=True)
 parser.add_argument("--ifedge", default=False)
 parser.add_argument("--whileedge", default=False)
 parser.add_argument("--foredge", default=False)
@@ -26,29 +34,29 @@ parser.add_argument("--lr", default=0.001)
 parser.add_argument("--threshold", default=0)
 args = parser.parse_args()
 
-print("CUDA", torch.cuda.is_available())
-
-device = torch.device("cuda:0")
-# device=torch.device('cpu')
-astdict, vocablen, vocabdict = create_ast()
-treedict = create_separate_graph(
+# device=torch.device('cuda:0')
+device = torch.device("cpu")
+astdict, vocablen, vocabdict = createast()
+treedict = createseparategraph(
     astdict,
     vocablen,
     vocabdict,
     device,
     mode=args.graphmode,
-    next_sib=args.nextsib,
-    if_edge=args.ifedge,
-    while_edge=args.whileedge,
-    for_edge=args.foredge,
-    block_edge=args.blockedge,
-    next_token=args.nexttoken,
-    next_use=args.nextuse,
+    nextsib=args.nextsib,
+    ifedge=args.ifedge,
+    whileedge=args.whileedge,
+    foredge=args.foredge,
+    blockedge=args.blockedge,
+    nexttoken=args.nexttoken,
+    nextuse=args.nextuse,
 )
-traindata, validdata, testdata = create_gmn_data(
+traindata, validdata, testdata = creategmndata(
     args.data_setting, treedict, vocablen, vocabdict, device
 )
+print("numTrainData:")
 print(len(traindata))
+# trainloder=DataLoader(traindata,batch_size=1)
 num_layers = int(args.num_layers)
 model = models.GMNnet(
     vocablen, embedding_dim=100, num_layers=num_layers, device=device
@@ -59,6 +67,7 @@ criterion2 = nn.MSELoss()
 
 
 def create_batches(data):
+    # random.shuffle(data)
     batches = [
         data[graph : graph + args.batch_size]
         for graph in range(0, len(data), args.batch_size)
@@ -67,9 +76,16 @@ def create_batches(data):
 
 
 def test(dataset):
-    tp, tn, fp, fn = 0, 0, 0, 0
+    # model.eval()
+    count = 0
+    correct = 0
+    tp = 0
+    tn = 0
+    fp = 0
+    fn = 0
     results = []
     for data, label in dataset:
+
         label = torch.tensor(label, dtype=torch.float, device=device)
         x1, x2, edge_index1, edge_index2, edge_attr1, edge_attr2 = data
         x1 = torch.tensor(x1, dtype=torch.long, device=device)
@@ -84,26 +100,38 @@ def test(dataset):
         output = F.cosine_similarity(prediction[0], prediction[1])
         results.append(output.item())
         prediction = torch.sign(output).item()
+
         if prediction > args.threshold and label.item() == 1:
             tp += 1
+            # print('tp')
         if prediction <= args.threshold and label.item() == -1:
             tn += 1
+            # print('tn')
         if prediction > args.threshold and label.item() == -1:
             fp += 1
+            # print('fp')
         if prediction <= args.threshold and label.item() == 1:
             fn += 1
+            # print('fn')
     print(tp, tn, fp, fn)
-    p, r, f1 = 0.0, 0.0, 0.0
+    p = 0.0
+    r = 0.0
+    f1 = 0.0
     if tp + fp == 0:
-        return print("precision is none")
+        print("precision is none")
+        return
     p = tp / (tp + fp)
     if tp + fn == 0:
-        return print("recall is none")
+        print("recall is none")
+        return
     r = tp / (tp + fn)
     f1 = 2 * p * r / (p + r)
-    print("precision", p)
-    print("recall", r)
-    print("F1", f1)
+    print("precision")
+    print(p)
+    print("recall")
+    print(r)
+    print("F1")
+    print(f1)
     return results
 
 
@@ -116,8 +144,15 @@ for epoch in epochs:  # without batching
     for index, batch in tqdm(enumerate(batches), total=len(batches), desc="Batches"):
         optimizer.zero_grad()
         batchloss = 0
+        # zzz=0
         for data, label in batch:
+            # zzz+=1
+            # print(zzz)
             label = torch.tensor(label, dtype=torch.float, device=device)
+            # print(len(data))
+            # for i in range(len(data)):
+            # print(i)
+            # data[i]=torch.tensor(data[i], dtype=torch.long, device=device)
             x1, x2, edge_index1, edge_index2, edge_attr1, edge_attr2 = data
             x1 = torch.tensor(x1, dtype=torch.long, device=device)
             x2 = torch.tensor(x2, dtype=torch.long, device=device)
@@ -128,6 +163,7 @@ for epoch in epochs:  # without batching
                 edge_attr2 = torch.tensor(edge_attr2, dtype=torch.long, device=device)
             data = [x1, x2, edge_index1, edge_index2, edge_attr1, edge_attr2]
             prediction = model(data)
+            # batchloss=batchloss+criterion(prediction[0],prediction[1],label)
             cossim = F.cosine_similarity(prediction[0], prediction[1])
             batchloss = batchloss + criterion2(cossim, label)
         batchloss.backward(retain_graph=True)
@@ -137,21 +173,28 @@ for epoch in epochs:  # without batching
         main_index = main_index + len(batch)
         loss = totalloss / main_index
         epochs.set_description("Epoch (Loss=%g)" % round(loss, 5))
+    # test(validdata)
     devresults = test(validdata)
-    devfile = open(
-        "gmnbcbresult/" + args.graphmode + "_dev_epoch_" + str(epoch + 1), mode="w"
-    )
-    for res in devresults:
-        devfile.write(str(res) + "\n")
-    devfile.close()
+    # devfile = open('gmnbcbresultnoid/' + args.graphmode + '_dev_epoch_' + str(epoch + 1), mode='w')
+    # for res in devresults:
+    #     devfile.write(str(res) + '\n')
+    # devfile.close()
     testresults = test(testdata)
-    resfile = open(
-        "gmnbcbresult/" + args.graphmode + "_epoch_" + str(epoch + 1), mode="w"
-    )
-    for res in testresults:
-        resfile.write(str(res) + "\n")
-    resfile.close()
+    # resfile = open('gmnbcbresultnoid/' + args.graphmode + '_epoch_' + str(epoch + 1), mode='w')
+    # for res in testresults:
+    #     resfile.write(str(res) + '\n')
+    # resfile.close()
     # torch.save(model,'gmnmodels/gmnbcb'+str(epoch+1))
     # for start in range(0, len(traindata), args.batch_size):
     # batch = traindata[start:start+args.batch_size]
     # epochs.set_description("Epoch (Loss=%g)" % round(loss,5))
+
+"""for batch in trainloder:
+    batch=batch.to(device)
+    print(batch)
+    quit()
+    time_start=time.time()
+    model.forward(batch)
+    time_end=time.time()
+    print(time_end-time_start)
+    quit()"""

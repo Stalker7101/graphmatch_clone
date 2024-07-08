@@ -427,7 +427,7 @@ class RunBcbGMN:
         test_data = self.create_pair_data(tree_dict, test_list, device=device)
         return train_data, valid_data, test_data
 
-    def create_pair_data(tree_dict, path_list, device):
+    def create_pair_data(self, tree_dict, path_list, device):
         data_list = []
         count_lines = 1
         for line in path_list:
@@ -435,7 +435,7 @@ class RunBcbGMN:
             pair_info = line.split()
             code_1_path = "BCB" + pair_info[0].strip(".")
             code_2_path = "BCB" + pair_info[1].strip(".")
-            label = int(pair_info[2])
+            label = torch.tensor(int(pair_info[2]), dtype=torch.float, device=self.device)
             data_1 = tree_dict[code_1_path]
             data_2 = tree_dict[code_2_path]
             x_1, edge_index_1, edge_attr_1, ast_1_length = (
@@ -528,10 +528,7 @@ class RunBcbGMN:
                 for data, label in batch:
                     prediction = self.predict(data)
                     cos_sim = F.cosine_similarity(prediction[0], prediction[1])
-                    batch_loss += self.criterion_2(
-                        cos_sim,
-                        torch.tensor(label, dtype=torch.float, device=self.device),
-                    )
+                    batch_loss += self.criterion_2(cos_sim, label)
                 batch_loss.backward(retain_graph=True)
                 self.optimizer.step()
                 loss = batch_loss.item()
@@ -539,20 +536,20 @@ class RunBcbGMN:
                 main_index = main_index + len(batch)
                 loss = total_loss / main_index
                 epochs.set_description("Epoch (Loss=%g)" % round(loss, 5))
-            dev_results = self.validate(self.valid_data)
+            self.dev_results = self.validate(self.valid_data)
             dev_file = open(
                 "gmnbcbresult/" + self.args.graph_mode + "_dev_epoch_" + str(epoch + 1),
                 mode="w",
             )
-            for res in dev_results:
+            for res in self.dev_results:
                 dev_file.write(str(res) + "\n")
             dev_file.close()
-            test_results = self.validate(self.test_data)
+            self.test_results = self.validate(self.test_data)
             res_file = open(
                 "gmnbcbresult/" + self.args.graph_mode + "_epoch_" + str(epoch + 1),
                 mode="w",
             )
-            for res in test_results:
+            for res in self.test_results:
                 res_file.write(str(res) + "\n")
             res_file.close()
 

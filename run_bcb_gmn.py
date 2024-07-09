@@ -44,7 +44,7 @@ class RunBcbGMN:
         self.parser.add_argument("--data_setting", default="11")
         self.parser.add_argument("--batch_size", default=32)
         self.parser.add_argument("--num_layers", default=4)
-        self.parser.add_argument("--num_epochs", default=10)
+        self.parser.add_argument("--num_epochs", default=2)
         self.parser.add_argument("--lr", default=0.001)
         self.parser.add_argument("--threshold", default=0)
         self.args = self.parser.parse_args()
@@ -503,10 +503,12 @@ class RunBcbGMN:
         print(tp, tn, fp, fn)
         p, r, f1 = 0.0, 0.0, 0.0
         if tp + fp == 0:
-            return print("precision is none")
+            print("precision is none")
+            return results
         p = tp / (tp + fp)
         if tp + fn == 0:
-            return print("recall is none")
+            print("recall is none")
+            return results
         r = tp / (tp + fn)
         f1 = 2 * p * r / (p + r)
         print("precision", p)
@@ -537,24 +539,36 @@ class RunBcbGMN:
                 main_index = main_index + len(batch)
                 loss = total_loss / main_index
                 epochs.set_description("Epoch (Loss=%g)" % round(loss, 5))
+            print('validation...')
             self.dev_results = self.validate(self.valid_data)
+            print('validation done')
+            print('validation res file opening...')
             dev_file = open(
                 "gmnbcbresult/" + self.args.graph_mode + "_dev_epoch_" + str(epoch + 1),
                 mode="w",
             )
+            print('write validation results...')
             for res in self.dev_results:
                 dev_file.write(str(res) + "\n")
+            print('writing validation results done')
             dev_file.close()
+            print('testing...')
             self.test_results = self.validate(self.test_data)
+            print('testing done')
+            print('test res file opening...')
             res_file = open(
                 "gmnbcbresult/" + self.args.graph_mode + "_epoch_" + str(epoch + 1),
                 mode="w",
             )
+            print('write test results...')
             for res in self.test_results:
                 res_file.write(str(res) + "\n")
+            print('writing test results done')
             res_file.close()
 
+            print('saving model...')
             torch.save(self.model.state_dict(), "gmnmodels/gmnbcb" + str(epoch + 1))
+            print('saving done')
 
 
 if __name__ == "__main__":

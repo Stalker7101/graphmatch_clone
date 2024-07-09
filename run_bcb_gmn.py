@@ -12,6 +12,7 @@ import javalang.ast
 import javalang.util
 from javalang.ast import Node
 from anytree import AnyNode
+from torch_geometric import data
 
 
 class RunBcbGMN:
@@ -553,7 +554,7 @@ class RunBcbGMN:
                 res_file.write(str(res) + "\n")
             res_file.close()
 
-            torch.save(self.model, "gmnmodels/gmnbcb" + str(epoch + 1))
+            torch.save(self.model.state_dict(), "gmnmodels/gmnbcb" + str(epoch + 1))
 
 
 if __name__ == "__main__":

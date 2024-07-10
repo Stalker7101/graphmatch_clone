@@ -44,7 +44,7 @@ class RunBcbGMN:
         self.parser.add_argument("--data_setting", default="11")
         self.parser.add_argument("--batch_size", default=32)
         self.parser.add_argument("--num_layers", default=4)
-        self.parser.add_argument("--num_epochs", default=2)
+        self.parser.add_argument("--num_epochs", default=3)
         self.parser.add_argument("--lr", default=0.001)
         self.parser.add_argument("--threshold", default=0)
         self.args = self.parser.parse_args()

@@ -49,7 +49,7 @@ class RunBcbGMN:
         self.parser.add_argument("--threshold", default=0)
         self.args = self.parser.parse_args()
         self.device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+            torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
         )
         print("CUDA", torch.cuda.is_available())
         self.ast_dict, self.vocab_len, self.vocab_dict = self.create_ast()
